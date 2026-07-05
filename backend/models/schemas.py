@@ -35,6 +35,23 @@ class Complaint(BaseModel):
     body: str
 
 
+class CitizenDetails(BaseModel):
+    """Citizen identity and location details supplied with a civic report."""
+
+    full_name: str
+    contact_number: str
+    location: str
+
+
+class CivicAgentResult(BaseModel):
+    """Structured output produced by the complete CivicAgent workflow."""
+
+    citizen_details: CitizenDetails
+    image_analysis: ImageAnalysisResult
+    department: DepartmentInfo
+    complaint: Complaint
+
+
 class Report(BaseModel):
     """Complete civic issue report composed from reusable application data."""
 
