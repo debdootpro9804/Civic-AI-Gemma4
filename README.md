@@ -36,7 +36,7 @@ However,
 
 ---
 
-# 💡 Our Solution
+# 💡 My Solution
 
 **CivicAI** is an AI-powered civic reporting assistant built using **Gemma 4**.
 
@@ -229,7 +229,7 @@ Gemma 4 provided:
 
 **Debdoot Sen**
 
-GenAI Developer
+Data Scientist
 
 ---
 
