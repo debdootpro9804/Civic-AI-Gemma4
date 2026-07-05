@@ -5,22 +5,24 @@ import logging
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
-from backend.models.schemas import ImageAnalysisResult
+from backend.models.schemas import ImageAnalysisResult, CivicAgentResult
 from backend.services.gemma_service import GemmaService
+from backend.agents.civic_agent import CivicAgent
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analysis"])
 gemma_service = GemmaService()
+civic_agent = CivicAgent(gemma_service)
 
 
-@router.post("/analyze", response_model=ImageAnalysisResult)
+@router.post("/analyze", response_model=CivicAgentResult)
 async def analyze_image(
     image: UploadFile = File(...),
     full_name: str = Form(...),
     contact_number: str = Form(...),
     location: str = Form(...),
-) -> ImageAnalysisResult:
+) -> CivicAgentResult:
     """Analyze an uploaded civic issue image."""
     if not all(
         value.strip() for value in (full_name, contact_number, location)
@@ -46,8 +48,12 @@ async def analyze_image(
 
     try:
         return await run_in_threadpool(
-            gemma_service.analyze_image,
+            civic_agent.run,
+            full_name,
+            contact_number,
+            location,
             image_bytes,
+            
         )
     except ValueError as exc:
         raise HTTPException(

@@ -3,6 +3,7 @@
 import html
 import math
 import os
+from textwrap import dedent
 from typing import Any
 
 import requests
@@ -59,11 +60,15 @@ def analyze_image(
         )
 
     try:
-        response.raise_for_status()
         result = response.json()
-        issue_type = result["issue_type"]
-        description = result["description"]
-        confidence = float(result["confidence"])
+
+        analysis = result["image_analysis"]
+        department = result["department"]
+        complaint = result["complaint"]
+        citizen = result["citizen_details"]
+        issue_type = analysis["issue_type"]
+        description = analysis["description"]
+        confidence = float(analysis["confidence"])
     except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
         raise RuntimeError(
             "The analysis service returned an unexpected response."
@@ -75,9 +80,10 @@ def analyze_image(
         raise RuntimeError("The analysis service returned an unexpected response.")
 
     return {
-        "issue_type": issue_type,
-        "description": description,
-        "confidence": confidence,
+        "citizen": citizen,
+        "analysis": analysis,
+        "department": department,
+        "complaint": complaint,
     }
 
 
@@ -87,11 +93,18 @@ st.set_page_config(
     layout="centered",
 )
 
-st.markdown(
-    """
+st.html(
+    dedent(
+        """
     <style>
         html, body, [class*="st-"] {
             font-family: "Avenir Next", "Inter", "Segoe UI", sans-serif;
+        }
+        /* Make Streamlit's header blend with the page background */
+        header[data-testid="stHeader"] {
+            background: rgba(248, 251, 255, 0.85) !important;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.08);
         }
         .stApp {
             background:
@@ -101,14 +114,15 @@ st.markdown(
         }
         .block-container {
             max-width: 820px;
-            padding-top: 2.5rem;
+            padding-top: 3.5rem;
             padding-bottom: 5rem;
         }
         .brand-row {
             align-items: center;
             display: flex;
             gap: 0.65rem;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
+            margin-top: 0.5rem;
         }
         .brand-mark {
             align-items: center;
@@ -359,6 +373,87 @@ st.markdown(
             box-shadow: 0 0 14px rgba(99, 102, 241, 0.45);
             height: 100%;
         }
+        .section-heading {
+            align-items: center;
+            color: #172554;
+            display: flex;
+            font-size: 1.15rem;
+            font-weight: 800;
+            gap: 0.55rem;
+            letter-spacing: -0.02em;
+            margin: 2.25rem 0 0.9rem;
+        }
+        .section-heading .section-icon {
+            font-size: 1.3rem;
+        }
+        .dept-card {
+            background: linear-gradient(135deg, #eff6ff, #eef2ff);
+            border: 1px solid #dbeafe;
+            border-radius: 1.15rem;
+            box-shadow: 0 14px 34px rgba(59, 130, 246, 0.1);
+            padding: 1.25rem 1.35rem;
+        }
+        .dept-row {
+            align-items: baseline;
+            display: flex;
+            gap: 0.5rem;
+        }
+        .dept-row + .dept-row {
+            margin-top: 0.65rem;
+        }
+        .dept-key {
+            color: #1e3a8a;
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            min-width: 5.5rem;
+            text-transform: uppercase;
+        }
+        .dept-val {
+            color: #1e293b;
+            font-size: 0.98rem;
+            font-weight: 600;
+            overflow-wrap: anywhere;
+        }
+        .dept-val a {
+            color: #2563eb;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .dept-val a:hover {
+            text-decoration: underline;
+        }
+        .complaint-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 1.15rem;
+            box-shadow: 0 16px 40px rgba(30, 41, 59, 0.08);
+            overflow: hidden;
+        }
+        .complaint-head {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #ffffff;
+            padding: 1.15rem 1.35rem;
+        }
+        .complaint-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0;
+        }
+        .complaint-subject {
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 0.88rem;
+            margin-top: 0.3rem;
+        }
+        .complaint-body {
+            color: #334155;
+            font-size: 0.98rem;
+            line-height: 1.75;
+            padding: 1.25rem 1.35rem;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
         .stButton > button {
             background: linear-gradient(90deg, #2563eb, #6d28d9);
             border: 0;
@@ -400,12 +495,13 @@ st.markdown(
             }
         }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
+    )
 )
 
-st.markdown(
-    """
+st.html(
+    dedent(
+        """
     <div class="brand-row">
         <div class="brand-mark">◈</div>
         <div class="brand-name">CivicAI</div>
@@ -420,8 +516,8 @@ st.markdown(
     </p>
     <div class="upload-heading">Your details</div>
     <div class="upload-hint">Tell us who is reporting the issue</div>
-    """,
-    unsafe_allow_html=True,
+    """
+    )
 )
 
 name_column, contact_column = st.columns(2)
@@ -441,12 +537,13 @@ location = st.text_input(
     placeholder="Street, landmark, or neighborhood",
 )
 
-st.markdown(
-    """
+st.html(
+    dedent(
+        """
     <div class="upload-heading">Upload your photo</div>
     <div class="upload-hint">JPEG or PNG · Choose a clear, well-lit image</div>
-    """,
-    unsafe_allow_html=True,
+    """
+    )
 )
 
 uploaded_image = st.file_uploader(
@@ -500,6 +597,7 @@ if analyze_clicked and uploaded_image is not None:
                 **citizen_details,
             )
             st.session_state.submitted_details = citizen_details
+            st.session_state.email_sent = False
         except ValueError as exc:
             st.session_state.analysis = None
             st.session_state.submitted_details = None
@@ -509,53 +607,145 @@ if analyze_clicked and uploaded_image is not None:
             st.session_state.submitted_details = None
             st.error(str(exc), icon="🛠️")
 
-analysis = st.session_state.get("analysis")
-submitted_details = st.session_state.get("submitted_details")
-if analysis is not None and submitted_details is not None:
+result = st.session_state.get("analysis")
+
+if result is not None:
+
+    citizen = result["citizen"]
+    analysis = result["analysis"]
+    department = result["department"]
+    complaint = result["complaint"]
+
     confidence = analysis["confidence"]
     confidence_percentage = confidence * 100
+
     issue_type = html.escape(analysis["issue_type"])
     description = html.escape(analysis["description"])
-    submitted_name = html.escape(submitted_details["full_name"])
-    submitted_contact = html.escape(submitted_details["contact_number"])
-    submitted_location = html.escape(submitted_details["location"])
-    st.markdown(
-        f"""
+
+    submitted_name = html.escape(citizen["full_name"])
+    submitted_contact = html.escape(citizen["contact_number"])
+    submitted_location = html.escape(citizen["location"])
+
+    department_name = html.escape(department["department_name"])
+    department_email = html.escape(department["email"])
+
+    complaint_title = html.escape(complaint["title"])
+    complaint_subject = html.escape(complaint["subject"])
+    complaint_body = complaint["body"]
+
+    st.html(
+        dedent(
+            f"""
         <div class="result-card">
             <div class="result-topline">
-                <div class="result-heading">Analysis complete</div>
+                <div class="result-heading">Analysis Complete</div>
                 <div class="result-badge">✓ Ready</div>
             </div>
-            <div class="result-label">Submitted by</div>
+
+            <div class="result-label">Citizen Details</div>
+
             <div class="citizen-details">
                 <div>
-                    <div class="detail-label">Full name</div>
+                    <div class="detail-label">Full Name</div>
                     <div class="detail-value">{submitted_name}</div>
                 </div>
+
                 <div>
-                    <div class="detail-label">Contact number</div>
+                    <div class="detail-label">Contact Number</div>
                     <div class="detail-value">{submitted_contact}</div>
                 </div>
+
                 <div class="detail-location">
                     <div class="detail-label">Location</div>
                     <div class="detail-value">{submitted_location}</div>
                 </div>
             </div>
-            <div class="result-label">Detected issue</div>
-            <div class="result-value">{issue_type}</div>
-            <div class="result-label">What CivicAI sees</div>
-            <p class="result-description">{description}</p>
+
+            <div class="result-label">Detected Issue</div>
+
+            <div class="result-value">
+                {issue_type}
+            </div>
+
+            <div class="result-label">Description</div>
+
+            <p class="result-description">
+                {description}
+            </p>
+
             <div class="confidence-box">
                 <div class="confidence-row">
-                    <div class="confidence-label">AI confidence</div>
-                    <div class="confidence-value">{confidence_percentage:.0f}%</div>
+                    <div class="confidence-label">
+                        AI Confidence
+                    </div>
+
+                    <div class="confidence-value">
+                        {confidence_percentage:.0f}%
+                    </div>
                 </div>
+
                 <div class="confidence-track">
                     <div class="confidence-fill"
-                         style="width: {confidence_percentage:.1f}%"></div>
+                         style="width:{confidence_percentage:.1f}%">
+                    </div>
                 </div>
             </div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
+        )
+    )
+
+    st.html(
+        dedent(
+            f"""
+        <div class="section-heading">
+            <span class="section-icon">🏢</span> Responsible Department
+        </div>
+        <div class="dept-card">
+            <div class="dept-row">
+                <div class="dept-key">Department</div>
+                <div class="dept-val">{department_name}</div>
+            </div>
+            <div class="dept-row">
+                <div class="dept-key">Email</div>
+                <div class="dept-val">
+                    <a href="mailto:{department_email}">{department_email}</a>
+                </div>
+            </div>
+        </div>
+        """
+        )
+    )
+
+    send_col, _ = st.columns([1, 2])
+    with send_col:
+        if st.button(
+            "📧 Send Report by Email",
+            key="send_email",
+            use_container_width=True,
+        ):
+            st.session_state.email_sent = True
+
+    if st.session_state.get("email_sent"):
+        st.success(
+            "Thank you for your submission! Your report has been forwarded "
+            f"to {department['department_name']}. They will be in touch shortly.",
+            icon="✅",
+        )
+
+    st.html(
+        dedent(
+            f"""
+        <div class="section-heading">
+            <span class="section-icon">📝</span> Generated Complaint
+        </div>
+        <div class="complaint-card">
+            <div class="complaint-head">
+                <p class="complaint-title">{complaint_title}</p>
+                <div class="complaint-subject">Subject: {complaint_subject}</div>
+            </div>
+            <div class="complaint-body">{html.escape(complaint_body)}</div>
+        </div>
+        """
+        )
     )
