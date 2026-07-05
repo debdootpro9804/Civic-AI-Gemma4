@@ -17,12 +17,20 @@ def analyze_image(
     image_bytes: bytes,
     filename: str,
     content_type: str,
+    full_name: str,
+    contact_number: str,
+    location: str,
 ) -> dict[str, Any]:
     """Send an image to the CivicAI API and return its analysis."""
     try:
         response = requests.post(
             ANALYZE_URL,
             files={"image": (filename, image_bytes, content_type)},
+            data={
+                "full_name": full_name,
+                "contact_number": contact_number,
+                "location": location,
+            },
             timeout=(5, 120),
         )
     except requests.ConnectionError as exc:
@@ -159,6 +167,20 @@ st.markdown(
             font-size: 0.88rem;
             margin: 0 0 0.85rem;
         }
+        [data-testid="stTextInput"] input {
+            background: rgba(255, 255, 255, 0.92);
+            border-color: #cbd5e1;
+            border-radius: 0.75rem;
+            color: #0f172a;
+        }
+        [data-testid="stTextInput"] input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f1;
+        }
+        [data-testid="stTextInput"] label {
+            color: #334155;
+            font-weight: 700;
+        }
         [data-testid="stFileUploader"] {
             background: rgba(255, 255, 255, 0.9);
             border: 1px solid rgba(99, 102, 241, 0.18);
@@ -273,6 +295,33 @@ st.markdown(
             line-height: 1.7;
             margin: 0.3rem 0 1.5rem;
         }
+        .citizen-details {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            display: grid;
+            gap: 0.85rem 1.25rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.1rem;
+        }
+        .citizen-details .detail-location {
+            grid-column: 1 / -1;
+        }
+        .detail-label {
+            color: #64748b;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .detail-value {
+            color: #1e293b;
+            font-size: 0.92rem;
+            font-weight: 650;
+            margin-top: 0.18rem;
+            overflow-wrap: anywhere;
+        }
         .confidence-box {
             background: linear-gradient(135deg, #eef2ff, #faf5ff);
             border: 1px solid #e0e7ff;
@@ -343,6 +392,12 @@ st.markdown(
             .result-card {
                 padding: 1.25rem;
             }
+            .citizen-details {
+                grid-template-columns: 1fr;
+            }
+            .citizen-details .detail-location {
+                grid-column: auto;
+            }
         }
     </style>
     """,
@@ -363,6 +418,31 @@ st.markdown(
         Turn a photo into a clear civic issue report. Upload an image and get
         an instant, AI-powered assessment in seconds.
     </p>
+    <div class="upload-heading">Your details</div>
+    <div class="upload-hint">Tell us who is reporting the issue</div>
+    """,
+    unsafe_allow_html=True,
+)
+
+name_column, contact_column = st.columns(2)
+with name_column:
+    full_name = st.text_input(
+        "Full Name *",
+        placeholder="Enter your full name",
+    )
+with contact_column:
+    contact_number = st.text_input(
+        "Contact Number *",
+        placeholder="Enter your contact number",
+    )
+
+location = st.text_input(
+    "Location *",
+    placeholder="Street, landmark, or neighborhood",
+)
+
+st.markdown(
+    """
     <div class="upload-heading">Upload your photo</div>
     <div class="upload-hint">JPEG or PNG · Choose a clear, well-lit image</div>
     """,
@@ -381,6 +461,7 @@ if uploaded_image is not None:
     if st.session_state.get("upload_identity") != upload_identity:
         st.session_state.upload_identity = upload_identity
         st.session_state.analysis = None
+        st.session_state.submitted_details = None
 
     st.image(
         uploaded_image,
@@ -390,41 +471,75 @@ if uploaded_image is not None:
 elif st.session_state.get("upload_identity") is not None:
     st.session_state.pop("upload_identity", None)
     st.session_state.analysis = None
+    st.session_state.submitted_details = None
 
 analyze_clicked = st.button(
     "Analyze Image",
     type="primary",
     use_container_width=True,
-    disabled=uploaded_image is None,
+    disabled=(
+        uploaded_image is None
+        or not full_name.strip()
+        or not contact_number.strip()
+        or not location.strip()
+    ),
 )
 
 if analyze_clicked and uploaded_image is not None:
+    citizen_details = {
+        "full_name": full_name.strip(),
+        "contact_number": contact_number.strip(),
+        "location": location.strip(),
+    }
     with st.spinner("Looking closely at the image…"):
         try:
             st.session_state.analysis = analyze_image(
                 image_bytes=uploaded_image.getvalue(),
                 filename=uploaded_image.name,
                 content_type=uploaded_image.type or "application/octet-stream",
+                **citizen_details,
             )
+            st.session_state.submitted_details = citizen_details
         except ValueError as exc:
             st.session_state.analysis = None
+            st.session_state.submitted_details = None
             st.warning(str(exc), icon="⚠️")
         except RuntimeError as exc:
             st.session_state.analysis = None
+            st.session_state.submitted_details = None
             st.error(str(exc), icon="🛠️")
 
 analysis = st.session_state.get("analysis")
-if analysis is not None:
+submitted_details = st.session_state.get("submitted_details")
+if analysis is not None and submitted_details is not None:
     confidence = analysis["confidence"]
     confidence_percentage = confidence * 100
     issue_type = html.escape(analysis["issue_type"])
     description = html.escape(analysis["description"])
+    submitted_name = html.escape(submitted_details["full_name"])
+    submitted_contact = html.escape(submitted_details["contact_number"])
+    submitted_location = html.escape(submitted_details["location"])
     st.markdown(
         f"""
         <div class="result-card">
             <div class="result-topline">
                 <div class="result-heading">Analysis complete</div>
                 <div class="result-badge">✓ Ready</div>
+            </div>
+            <div class="result-label">Submitted by</div>
+            <div class="citizen-details">
+                <div>
+                    <div class="detail-label">Full name</div>
+                    <div class="detail-value">{submitted_name}</div>
+                </div>
+                <div>
+                    <div class="detail-label">Contact number</div>
+                    <div class="detail-value">{submitted_contact}</div>
+                </div>
+                <div class="detail-location">
+                    <div class="detail-label">Location</div>
+                    <div class="detail-value">{submitted_location}</div>
+                </div>
             </div>
             <div class="result-label">Detected issue</div>
             <div class="result-value">{issue_type}</div>

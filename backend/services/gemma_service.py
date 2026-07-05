@@ -3,6 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import ollama
 from pydantic import ValidationError
@@ -47,6 +48,56 @@ Return exactly one JSON object matching this schema:
 
 Return JSON only. Do not use Markdown, code fences, commentary, or additional
 keys."""
+
+    def generate_structured_text(
+        self,
+        prompt: str,
+        schema: dict[str, Any],
+    ) -> str:
+        """Generate schema-constrained text with the local Gemma model.
+
+        This prompt-agnostic service method keeps Ollama communication inside
+        ``GemmaService`` while allowing calling tools to own their specialized
+        prompt engineering and response validation.
+
+        Args:
+            prompt: Complete task instructions prepared by the calling tool.
+            schema: JSON schema that the model response must satisfy.
+
+        Returns:
+            Raw structured response content produced by Gemma.
+
+        Raises:
+            ValueError: If the prompt or schema is empty.
+            RuntimeError: If Ollama fails or Gemma returns no content.
+        """
+        if not prompt.strip():
+            raise ValueError("A non-empty prompt is required.")
+        if not schema:
+            raise ValueError("A non-empty response schema is required.")
+
+        try:
+            response = ollama.chat(
+                model=self._MODEL_NAME,
+                messages=[{"role": "user", "content": prompt}],
+                format=schema,
+                options={"temperature": 0},
+            )
+        except ollama.ResponseError as exc:
+            raise RuntimeError(
+                f"Ollama failed to generate structured text: {exc.error}"
+            ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                "Unable to communicate with local Ollama. Ensure Ollama is "
+                "running and the gemma4:e2b model is installed."
+            ) from exc
+
+        content = response.message.content
+        if not content:
+            raise RuntimeError("Gemma returned an empty structured response.")
+
+        return content
 
     def analyze_image(self, image_bytes: bytes) -> ImageAnalysisResult:
         """Analyze an image with local Gemma 4 and return a structured result.

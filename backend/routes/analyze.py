@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
 
 from backend.models.schemas import ImageAnalysisResult
@@ -17,8 +17,19 @@ gemma_service = GemmaService()
 @router.post("/analyze", response_model=ImageAnalysisResult)
 async def analyze_image(
     image: UploadFile = File(...),
+    full_name: str = Form(...),
+    contact_number: str = Form(...),
+    location: str = Form(...),
 ) -> ImageAnalysisResult:
     """Analyze an uploaded civic issue image."""
+    if not all(
+        value.strip() for value in (full_name, contact_number, location)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Full name, contact number, and location are required.",
+        )
+
     try:
         image_bytes = await image.read()
     except Exception as exc:
