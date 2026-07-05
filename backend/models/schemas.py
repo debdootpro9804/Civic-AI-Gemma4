@@ -50,6 +50,7 @@ class CivicAgentResult(BaseModel):
     image_analysis: ImageAnalysisResult
     department: DepartmentInfo
     complaint: Complaint
+    pdf_path:str
 
 
 class Report(BaseModel):

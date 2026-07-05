@@ -13,7 +13,7 @@ from backend.models.schemas import (
 )
 from backend.services.gemma_service import GemmaService
 from backend.tools import find_department, generate_complaint
-
+from backend.tools.create_report import create_report
 
 class _CivicAgentState(TypedDict):
     """Internal state accumulated while the CivicAgent graph executes."""
@@ -23,6 +23,7 @@ class _CivicAgentState(TypedDict):
     image_analysis: NotRequired[ImageAnalysisResult]
     department: NotRequired[DepartmentInfo]
     complaint: NotRequired[Complaint]
+    pdf_path: NotRequired[str]
 
 
 class CivicAgent:
@@ -79,6 +80,7 @@ class CivicAgent:
             image_analysis=final_state["image_analysis"],
             department=final_state["department"],
             complaint=final_state["complaint"],
+            pdf_path=final_state["pdf_path"],
         )
 
     def _analyze(self, state: _CivicAgentState) -> dict[str, ImageAnalysisResult]:
@@ -115,6 +117,19 @@ class CivicAgent:
                 department=state["department"],
             )
         }
+    @staticmethod
+    def _create_report(state: _CivicAgentState,) -> dict[str, str]:
+        """Generate a PDF report from the accumulated workflow state."""
+        pdf_path = create_report(
+        citizen_details=state["citizen_details"],
+        image_analysis=state["image_analysis"],
+        department=state["department"],
+        complaint=state["complaint"],
+    )
+
+        return {
+        "pdf_path": pdf_path,
+        }
 
     def _build_graph(self):
         """Build and compile the linear CivicAI workflow graph."""
@@ -122,10 +137,11 @@ class CivicAgent:
         graph.add_node("Analyze", self._analyze)
         graph.add_node("Department", self._find_department)
         graph.add_node("Complaint", self._generate_complaint)
-
+        graph.add_node("Report", self._create_report) 
         graph.add_edge(START, "Analyze")
         graph.add_edge("Analyze", "Department")
         graph.add_edge("Department", "Complaint")
-        graph.add_edge("Complaint", END)
+        graph.add_edge("Complaint", "Report")
+        graph.add_edge("Report", END)
 
         return graph.compile()

@@ -84,6 +84,7 @@ def analyze_image(
         "analysis": analysis,
         "department": department,
         "complaint": complaint,
+        "pdf_path": result.get("pdf_path"),
     }
 
 
@@ -749,3 +750,27 @@ if result is not None:
         """
         )
     )
+
+    pdf_path = result.get("pdf_path")
+    if pdf_path:
+        import os as _os
+        st.html(
+            dedent(
+                """
+            <div class="section-heading">
+                <span class="section-icon">📄</span> Download Report
+            </div>
+            """
+            )
+        )
+        try:
+            with open(pdf_path, "rb") as pdf_file:
+                st.download_button(
+                    label="📄 Download Complaint Report",
+                    data=pdf_file,
+                    file_name=f"CivicAI_Report_{_os.path.basename(pdf_path)}",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+        except OSError:
+            st.warning("PDF report is not available for download.", icon="⚠️")
