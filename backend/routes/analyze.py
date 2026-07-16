@@ -1,6 +1,7 @@
 """Image analysis API endpoints."""
 
 import logging
+from unittest import result
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from starlette.concurrency import run_in_threadpool
@@ -47,14 +48,19 @@ async def analyze_image(
             logger.warning("Failed to close uploaded image", exc_info=True)
 
     try:
-        return await run_in_threadpool(
-            civic_agent.run,
-            full_name,
-            contact_number,
-            location,
-            image_bytes,
+        # return await run_in_threadpool(
+        #     civic_agent.run,
+        #     full_name,
+        #     contact_number,
+        #     location,
+        #     image_bytes,
             
-        )
+        # )
+        result = await run_in_threadpool(civic_agent.run,full_name,contact_number,location,image_bytes)
+
+        print(result)
+
+        return result
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
